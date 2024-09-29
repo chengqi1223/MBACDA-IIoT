@@ -11,8 +11,8 @@ const G:point.
 table acc(bitstring).
 table dev(bitstring,point,bitstring).
 
-free IDA:bitstring[private].    (*ID of DeviceA*)
-free IDB:bitstring[private].    (*ID of DeviceB*)
+free IDi:bitstring[private].    (*ID of DeviceA*)
+free IDj:bitstring[private].    (*ID of DeviceB*)
 free pid1:bitstring.    (*PID1 of DeviceA*)
 free pid2:bitstring.    (*PID2 of DeviceA*)
 free SK_ij:bitstring[private].
@@ -40,38 +40,38 @@ fun schonnr_sign(bitstring,bitstring,bitstring):bitstring.
 reduc forall sk:bitstring, h:bitstring, ra:bitstring; schonnr_veri(eccmuti(schonnr_sign(sk,h,ra),G),eccadd(eccmuti(sk,G),eccmuti(h,eccmuti(ra,G))))=true.
 fun Gw(bitstring,bitstring,bitstring):bitstring.
 fun Gsk(bitstring,bitstring,bitstring):bitstring.
-reduc forall ra:bitstring,ida:bitstring,rda:bitstring,skda:bitstring; 
-CheckPK(eccmuti(Gsk(ra,hash((ida,eccadd(eccmuti(ra,G),eccmuti(rda,G)))),Gw(hash((ida,eccadd(eccmuti(ra,G),eccmuti(rda,G)))),rda,skda)),G),eccadd(eccmuti(ra,G),eccmuti(rda,G)),hash((ida,eccadd(eccmuti(ra,G),eccmuti(rda,G)))),eccmuti(skda,G))=true.
+reduc forall ra:bitstring,IDi:bitstring,rda:bitstring,skda:bitstring; 
+CheckPK(eccmuti(Gsk(ra,hash((IDi,eccadd(eccmuti(ra,G),eccmuti(rda,G)))),Gw(hash((IDi,eccadd(eccmuti(ra,G),eccmuti(rda,G)))),rda,skda)),G),eccadd(eccmuti(ra,G),eccmuti(rda,G)),hash((IDi,eccadd(eccmuti(ra,G),eccmuti(rda,G)))),eccmuti(skda,G))=true.
 
 (*Equations*)
 (*equation for ECDH*)
 equation forall m:bitstring, n:bitstring; eccmuti(m,eccmuti(n,G))=eccmuti(n,eccmuti(m,G)).
 
 (*Events*)
-event begin_rigi_A(bitstring).
-event end_rigi_A(bitstring).
+event begin_rigi_di(bitstring).
+event end_rigi_di(bitstring).
 event begin_rigi_DA(bitstring).
 event end_rigi_DA(bitstring).
-event begin_pre_auth_A(bitstring).
-event end_pre_auth_A(bitstring).
+event begin_pre_auth_di(bitstring).
+event end_pre_auth_di(bitstring).
 event begin_pre_auth_GW(bitstring).
 event end_pre_auth_GW(bitstring).
-event begin_auth_A(bitstring).
-event end_auth_A(bitstring).
-event begin_auth_B(bitstring).
-event end_auth_B(bitstring).
+event begin_auth_di(bitstring).
+event end_auth_di(bitstring).
+event begin_auth_dj(bitstring).
+event end_auth_dj(bitstring).
 
 (*Attack Model*)
-query attacker(IDA).
-query attacker(IDB).
+query attacker(IDi).
+query attacker(IDj).
 query attacker(SK_ij).
 query attacker(SK_ji).
 
-query x:bitstring; inj-event(end_rigi_A(x)) ==> inj-event(begin_rigi_A(x)).
-query x:bitstring; inj-event(end_pre_auth_A(x)) ==> inj-event(begin_pre_auth_A(x)).
+query x:bitstring; inj-event(end_rigi_di(x)) ==> inj-event(begin_rigi_di(x)).
+query x:bitstring; inj-event(end_pre_auth_di(x)) ==> inj-event(begin_pre_auth_di(x)).
 query x:bitstring; event(end_pre_auth_GW(x)) ==> event(begin_pre_auth_GW(x)).
-query x:bitstring; inj-event(end_auth_A(x)) ==> inj-event(begin_auth_A(x)).
-query x:bitstring; event(end_auth_B(x)) ==> event(begin_auth_B(x)).
+query x:bitstring; inj-event(end_auth_di(x)) ==> inj-event(begin_auth_di(x)).
+query x:bitstring; event(end_auth_dj(x)) ==> event(begin_auth_dj(x)).
 
 (*Process Device A*)
 
@@ -87,44 +87,44 @@ let L2 = hash((pid2,ppk2)) in
 new api1:API;
 new api2:API;
 let rootA = Merkle_gen(L1,api1,L2,api2) in
-out(cp,(IDA,Ri,rootA));
+out(cp,(IDi,Ri,rootA));
 in(cp,(Pi:point,w:bitstring,sig1:bitstring));
-let hiX = hash((IDA,Pi)) in
+let hiX = hash((IDi,Pi)) in
 let skA = Gsk(ri,hiX,w) in
 let PKA = eccmuti(skA,G) in
 if CheckPK(PKA,Pi,hiX,PKDA) then
-event end_rigi_A(IDA);
-out(cp,(IDA,PKA,rootA,sig1));
+event end_rigi_di(IDi);
+out(cp,(IDi,PKA,rootA,sig1));
 event begin_pre_auth_GW(pid1);
 new rA1:bitstring;
-let S1 = xor(joint_1(Pi,IDA),hash((eccmuti(psk1,PKGW),pid1))) in
-let S2 = xor(rA1,hash((Pi,IDA,PKA))) in
+let S1 = xor(joint_1(Pi,IDi),hash((eccmuti(psk1,PKGW),pid1))) in
+let S2 = xor(rA1,hash((Pi,IDi,PKA))) in
 let api_x = reverse_API(api1,rA1,rootA) in 
 let sig2 = schonnr_sign(skA,hash((pid1,ppk1,api_x,S1,S2,api1)),psk1) in
 out(c,(pid1,ppk1,api_x,S1,S2,sig2));
 in(c,(V:bitstring,h2:bitstring));
-if h2 = hash((V,IDA,rA1)) then
-event end_pre_auth_A(pid1);
-event begin_auth_B(IDB);
+if h2 = hash((V,IDi,rA1)) then
+event end_pre_auth_di(pid1);
+event begin_auth_dj(IDj);
 new rA2:bitstring;
 let RA2 = eccmuti(rA2,G) in 
-let h2 = hash((RA2,pid1,ppk1,V,IDB)) in
+let h2 = hash((RA2,pid1,ppk1,V,IDj)) in
 let sig3 = schonnr_sign(psk1,h2,rA2) in
 out(c,(RA2,pid1,ppk1,V,sig3));
 in(c,(RB:point,U1:bitstring,U2:bitstring,h5:bitstring));
 let PKBX = ichange(i_xor(U1,hash(change(eccmuti(psk1,RB))))) in
 let PKJX = ichange(i_xor(U2,hash(change(eccmuti(rA2,PKBX))))) in
-if CheckPK(PKBX,PKJX,hash((IDB,PKJX)),PKDA) then
+if CheckPK(PKBX,PKJX,hash((IDj,PKJX)),PKDA) then
 let Kab = eccadd(eccmuti(psk1,RB),eccmuti(rA2,PKBX)) in
 if h5 = hash((RB,U1,U2,PKBX,PKJX,Kab)) then
-event end_auth_A(pid1);
-let SK_ij = hash((Kab,pid1,IDB)).
+event end_auth_di(pid1);
+let SK_ij = hash((Kab,pid1,IDj)).
 
 (*Process Device B*)
 let deviceB(skB: bitstring, Pj:point, PKB: point, PKGW: point, pid3:bitstring, psk3:bitstring) =
 in(c,(RA2:point,pid1:bitstring,ppk1:point,V:bitstring,sig3:bitstring));
-event begin_auth_A(pid1);
-let h2X = hash((RA2,pid1,ppk1,V,IDB)) in
+event begin_auth_di(pid1);
+let h2X = hash((RA2,pid1,ppk1,V,IDj)) in
 if schonnr_veri(eccmuti(sig3,G),eccadd(ppk1,eccmuti(h2X,RA2))) then
 let TX = hash((pid1,ppk1,V)) in
 let h3 = hash((pid1,pid3,TX,eccmuti(psk3,PKGW))) in
@@ -139,39 +139,39 @@ let U1 = xor(change(PKB),hash(change(eccmuti(rB,ppk1)))) in
 let U2 = xor(change(Pj),hash(change(eccmuti(skB,RA2)))) in
 let Kba = eccadd(eccmuti(rB,ppk1),eccmuti(skB,RA2)) in
 let h5 = hash((RB,U1,U2,PKB,Pj,Kba)) in
-let SK_ji = hash((Kba,pid1,IDB)) in
-event end_auth_B(IDB);
+let SK_ji = hash((Kba,pid1,IDj)) in
+event end_auth_dj(IDj);
 out(c,(RB,U1,U2,h5)).
 
 
 (*Process DA*)
 let DA(skDA: bitstring, PKDA: point) = 
-in(cp,(IDA:bitstring,Ri:point,rootA:bitstring));
-event begin_rigi_A(IDA);
+in(cp,(IDi:bitstring,Ri:point,rootA:bitstring));
+event begin_rigi_di(IDi);
 new rDA:bitstring;
 let Pi = eccadd(Ri,eccmuti(rDA,G)) in
-let hi = hash((IDA,Pi)) in
+let hi = hash((IDi,Pi)) in
 let w = Gw(hi,rDA,skDA) in
-let sig1 = sign(skDA,(IDA,rootA)) in
+let sig1 = sign(skDA,(IDi,rootA)) in
 out(cp,(Pi,w,sig1)).
 
 (*Process GW*)
 let GW_1(PKDA: point, skGW: bitstring, PKGW: point) =
-in(cp,(IDA:bitstring,PKA:point,rootA:bitstring,sig1:bitstring));
-if veri((IDA,rootA),sig1,PKDA) then
-insert dev(IDA,PKA,rootA);
+in(cp,(IDi:bitstring,PKA:point,rootA:bitstring,sig1:bitstring));
+if veri((IDi,rootA),sig1,PKDA) then
+insert dev(IDi,PKA,rootA);
 in(c,(pid1:bitstring,ppk1:point,api_x:API,S1:bitstring,S2:bitstring,sig2:bitstring));
-event begin_pre_auth_A(pid1);
-let (PiX:point,IDAX:bitstring) = i_joint_1(i_xor(S1,hash((eccmuti(skGW,ppk1),pid1)))) in
-get dev(=IDAX,PKAX,rootAX) in
-if CheckPK(PKAX,PiX,hash((IDAX,PiX)),PKDA) then
-let rA1X = i_xor(S2,hash((PiX,IDAX,PKAX))) in
+event begin_pre_auth_di(pid1);
+let (PiX:point,IDiX:bitstring) = i_joint_1(i_xor(S1,hash((eccmuti(skGW,ppk1),pid1)))) in
+get dev(=IDiX,PKAX,rootAX) in
+if CheckPK(PKAX,PiX,hash((IDiX,PiX)),PKDA) then
+let rA1X = i_xor(S2,hash((PiX,IDiX,PKAX))) in
 let apiX = recover_API(api_x,rA1X,rootAX) in
 if Merkle_ver(hash((pid1,ppk1)),apiX,rootAX) then
 if schonnr_veri(eccmuti(sig2,G),eccadd(PKAX,eccmuti(hash((pid1,ppk1,api_x,S1,S2,apiX)),ppk1))) then
-let V = xor(IDAX,hash(change((eccmuti(skGW,PKDA))))) in
+let V = xor(IDiX,hash(change((eccmuti(skGW,PKDA))))) in
 let T = hash((pid1,ppk1,V)) in
-let h2 = hash((V,IDAX,rA1X)) in
+let h2 = hash((V,IDiX,rA1X)) in
 insert acc(T);
 event end_pre_auth_GW(pid1);
 out(c,(V,h2)).
@@ -195,7 +195,7 @@ let PKGW = eccmuti(skGW,G) in
 new rj:bitstring;
 new rDA1:bitstring;
 let Pj = eccadd(eccmuti(rj,G),eccmuti(rDA1,G)) in
-let skB = Gsk(rj,hash((IDB,Pj)),Gw(hash((IDB,Pj)),rDA1,skDA)) in
+let skB = Gsk(rj,hash((IDj,Pj)),Gw(hash((IDj,Pj)),rDA1,skDA)) in
 let PKB = eccmuti(skB,G) in
 new pid3:bitstring;
 new psk3:bitstring;
